@@ -1,13 +1,14 @@
-import styled from "react-emotion";
+import * as React from "react";
 
-export const Button = styled("button")`
-  background: powderblue;
-  border: 0.25rem steelblue solid;
-  cursor: pointer;
-  padding: 1rem 2rem;
-  font-size: 1rem;
-  border-radius: 1rem;
-  &:hover {
-    background: lightblue;
-  }
-`;
+const ButtonStyle: React.CSSProperties = {
+  background: "powderblue",
+  border: "0.25rem steelblue solid",
+  cursor: "pointer",
+  padding: "1rem 2rem",
+  fontSize: "1rem",
+  borderRadius: "1rem",
+};
+
+export const Button = ({ style, ...props }: React.ComponentProps<"button">) => (
+  <button {...props} style={{ ...style, ...ButtonStyle }} />
+);

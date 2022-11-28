@@ -1,8 +1,7 @@
 import { Option, None } from "catling";
 import * as React from "react";
-import styled from "react-emotion";
 import { Snake } from "./components/Snake";
-import { Food } from "src/components/Food";
+import { Food } from "./components/Food";
 import { GameOverMessage } from "./components/GameOverMessage";
 
 export interface Coords {
@@ -17,26 +16,25 @@ interface State {
   snakeLocation: Coords[];
   foodLocation: Coords;
   addSegment: boolean;
-  listener: Option<NodeJS.Timer>;
+  listener: Option<number>;
   gameOver: boolean;
 }
 
-const AppContainer = styled("div")`
-display: flex;
-justify-content: center;
-align-items: center;
-flex-direction: column;
-}
-`;
+const AppContainerStyle: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "center",
+  alignItems: "center",
+  flexDirection: "column",
+};
 
-const Arena = styled("div")`
-  width: 30rem;
-  height: 30rem;
-  position: relative;
-  background: peachpuff;
-  border: 0.4rem orangered solid;
-  margin: 2rem;
-`;
+const ArenaStyle: React.CSSProperties = {
+  width: "30rem",
+  height: "30rem",
+  position: "relative",
+  background: "peachpuff",
+  border: "0.4rem orangered solid",
+  margin: "2rem",
+};
 
 const loop = (val: number) => {
   if (val > 29) {
@@ -52,11 +50,15 @@ const loop = (val: number) => {
 function initialState(): State {
   return {
     direction: "U",
-    snakeLocation: [{ x: 15, y: 15 }, { x: 15, y: 14 }, { x: 15, y: 13 }],
+    snakeLocation: [
+      { x: 15, y: 15 },
+      { x: 15, y: 14 },
+      { x: 15, y: 13 },
+    ],
     foodLocation: { x: getPoint(), y: getPoint() },
     addSegment: false,
     listener: None(),
-    gameOver: false
+    gameOver: false,
   };
 }
 
@@ -70,7 +72,7 @@ class App extends React.Component<{}, State> {
 
   startPlay = () => {
     this.setState({
-      listener: Option(setInterval(this.move, 150))
+      listener: Option(setInterval(this.move, 150)),
     });
   };
 
@@ -85,7 +87,7 @@ class App extends React.Component<{}, State> {
   eatFood = () => {
     this.setState({
       addSegment: true,
-      foodLocation: getFoodLocation(this.state.snakeLocation)
+      foodLocation: getFoodLocation(this.state.snakeLocation),
     });
   };
 
@@ -100,7 +102,7 @@ class App extends React.Component<{}, State> {
       y: loop(
         snakeLocation[0].y +
           (direction === "U" ? 1 : direction === "D" ? -1 : 0)
-      )
+      ),
     };
 
     const newSnakeLocation = [nextHead]
@@ -114,7 +116,7 @@ class App extends React.Component<{}, State> {
     }
     this.setState({
       snakeLocation: newSnakeLocation,
-      addSegment: false
+      addSegment: false,
     });
 
     if (nextHead.x === foodLocation.x && nextHead.y === foodLocation.y) {
@@ -123,17 +125,17 @@ class App extends React.Component<{}, State> {
   };
 
   setDirection = (e: KeyboardEvent) => {
-    getDirection(e.key).map(direction => {
+    getDirection(e.key).map((direction) => {
       this.setState({
-        direction
+        direction,
       });
     });
   };
 
   public render() {
     return (
-      <AppContainer className="App">
-        <Arena>
+      <main className="App" style={AppContainerStyle}>
+        <div style={ArenaStyle}>
           <Snake
             coords={this.state.snakeLocation}
             face={this.state.gameOver ? "🙀" : "😈"}
@@ -142,9 +144,9 @@ class App extends React.Component<{}, State> {
           {this.state.gameOver && (
             <GameOverMessage onPlayAgain={this.restartPlay} />
           )}
-        </Arena>
+        </div>
         Score: {this.state.snakeLocation.length - 3}
-      </AppContainer>
+      </main>
     );
   }
 }
@@ -156,7 +158,7 @@ function getDirection(key: KeyboardEvent["key"]) {
     ArrowDown: "D",
     ArrowUp: "U",
     ArrowLeft: "L",
-    ArrowRight: "R"
+    ArrowRight: "R",
   };
 
   return Option(directions[key]);

@@ -1,20 +1,21 @@
-import * as React from "react";
-import { Coords } from "src/App";
-import { Block } from "src/components/Block";
-import styled from "react-emotion";
+import React from "react";
+import { Coords } from "../App";
+import { Block } from "./Block";
 
 interface Props {
   location: Coords;
 }
 
-const FoodBox = styled(Block)`
-  background: transparent;
-`;
-
 export function Food({ location }: Props) {
   return (
-    <FoodBox style={{ left: `${location.x}rem`, bottom: `${location.y}rem` }}>
+    <Block
+      style={{
+        left: `${location.x}rem`,
+        bottom: `${location.y}rem`,
+        background: "transparent",
+      }}
+    >
       🍔
-    </FoodBox>
+    </Block>
   );
 }
