@@ -2,9 +2,12 @@
   "name": "snake",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": "18.*"
+  },
   "dependencies": {
     "@vitejs/plugin-react": "^2.2.0",
-    "catling": "^1.1.0",
+    "fp-ts": "^2.13.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "vite": "^3.2.4"

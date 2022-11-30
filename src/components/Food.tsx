@@ -1,9 +1,9 @@
 import React from "react";
-import { Coords } from "../App";
+import { Point } from "../App";
 import { Block } from "./Block";
 
 interface Props {
-  location: Coords;
+  location: Point;
 }
 
 export function Food({ location }: Props) {

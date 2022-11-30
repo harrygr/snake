@@ -1,24 +1,24 @@
-import { Option, None } from "catling";
+import * as O from "fp-ts/Option";
+import * as R from "fp-ts/Record";
+import * as Eq from "fp-ts/Eq";
+import * as A from "fp-ts/Array";
 import * as React from "react";
 import { Snake } from "./components/Snake";
 import { Food } from "./components/Food";
 import { GameOverMessage } from "./components/GameOverMessage";
+import { pipe } from "fp-ts/lib/function";
 
-export interface Coords {
+const MOVE_INTERVAL = 150;
+const BOARD_WIDTH = 30;
+const BOARD_HEIGHT = 30;
+const INITIAL_SNAKE_LENGTH = 3;
+
+export interface Point {
   x: number;
   y: number;
 }
 
 export type Direction = "U" | "D" | "L" | "R";
-
-interface State {
-  direction: Direction;
-  snakeLocation: Coords[];
-  foodLocation: Coords;
-  addSegment: boolean;
-  listener: Option<number>;
-  gameOver: boolean;
-}
 
 const AppContainerStyle: React.CSSProperties = {
   display: "flex",
@@ -36,122 +36,161 @@ const ArenaStyle: React.CSSProperties = {
   margin: "2rem",
 };
 
-const loop = (val: number) => {
-  if (val > 29) {
-    return 0;
-  }
-  if (val < 0) {
-    return 29;
-  }
+interface State {
+  direction: Direction;
+  snakeLocation: Point[];
+  foodLocation: Point;
+  addSegment: boolean;
+  listener: O.Option<number>;
+}
 
-  return val;
-};
+type Action =
+  | { type: "Move" }
+  | { type: "Restart"; listener: number }
+  | { type: "SetListener"; id: O.Option<number> }
+  | { type: "SetDirection"; direction: Direction };
 
-function initialState(): State {
+const initialState = (): State => {
+  const centerX = Math.floor(BOARD_WIDTH / 2);
+  const centerY = Math.floor(BOARD_HEIGHT / 2);
+  const snakeLocation = Array.from({ length: INITIAL_SNAKE_LENGTH }).map(
+    (_, i) => ({ x: centerX, y: centerY - i })
+  );
+
   return {
     direction: "U",
-    snakeLocation: [
-      { x: 15, y: 15 },
-      { x: 15, y: 14 },
-      { x: 15, y: 13 },
-    ],
-    foodLocation: { x: getPoint(), y: getPoint() },
+    snakeLocation,
+    foodLocation: getFoodLocation(snakeLocation),
     addSegment: false,
-    listener: None(),
-    gameOver: false,
+    listener: O.none,
   };
-}
+};
 
-class App extends React.Component<{}, State> {
-  public state: State = initialState();
-
-  componentDidMount() {
-    document.body.addEventListener("keydown", this.setDirection);
-    this.startPlay();
+const reducer: React.Reducer<State, Action> = (state, action) => {
+  if (action.type === "Move") {
+    return moveSnake(state);
   }
+  if (action.type === "Restart") {
+    return { ...initialState(), listener: O.some(action.listener) };
+  }
+  if (action.type === "SetListener") {
+    return { ...state, listener: action.id };
+  }
+  if (action.type === "SetDirection") {
+    return { ...state, direction: action.direction, directionChanged: true };
+  }
+  return state;
+};
 
-  startPlay = () => {
-    this.setState({
-      listener: Option(setInterval(this.move, 150)),
-    });
-  };
+export const App = () => {
+  const [state, dispatch] = React.useReducer(reducer, initialState());
+  const startMoving = () =>
+    setInterval(() => dispatch({ type: "Move" }), MOVE_INTERVAL);
 
-  stopPlay = () => {
-    this.state.listener.map(clearInterval);
-    this.setState({ listener: None() });
-  };
-
-  restartPlay = () => {
-    this.setState(initialState(), this.startPlay);
-  };
-  eatFood = () => {
-    this.setState({
-      addSegment: true,
-      foodLocation: getFoodLocation(this.state.snakeLocation),
-    });
-  };
-
-  public move = () => {
-    const { direction, snakeLocation, addSegment, foodLocation } = this.state;
-
-    const nextHead = {
-      x: loop(
-        snakeLocation[0].x +
-          (direction === "R" ? 1 : direction === "L" ? -1 : 0)
-      ),
-      y: loop(
-        snakeLocation[0].y +
-          (direction === "U" ? 1 : direction === "D" ? -1 : 0)
-      ),
-    };
-
-    const newSnakeLocation = [nextHead]
-      .concat(snakeLocation)
-      .slice(0, addSegment ? undefined : -1);
-
-    if (hasEatenItself(newSnakeLocation)) {
-      this.stopPlay();
-      this.setState({ gameOver: true });
+  const startPlay = () => {
+    if (O.isSome(state.listener)) {
       return;
     }
-    this.setState({
-      snakeLocation: newSnakeLocation,
-      addSegment: false,
-    });
 
-    if (nextHead.x === foodLocation.x && nextHead.y === foodLocation.y) {
-      this.eatFood();
-    }
-  };
-
-  setDirection = (e: KeyboardEvent) => {
-    getDirection(e.key).map((direction) => {
-      this.setState({
-        direction,
-      });
+    dispatch({
+      type: "SetListener",
+      id: O.some(startMoving()),
     });
   };
 
-  public render() {
-    return (
-      <main className="App" style={AppContainerStyle}>
-        <div style={ArenaStyle}>
-          <Snake
-            coords={this.state.snakeLocation}
-            face={this.state.gameOver ? "🙀" : "😈"}
-          />
-          <Food location={this.state.foodLocation} />
-          {this.state.gameOver && (
-            <GameOverMessage onPlayAgain={this.restartPlay} />
-          )}
-        </div>
-        Score: {this.state.snakeLocation.length - 3}
-      </main>
+  const stopPlay = () => {
+    pipe(
+      state.listener,
+      O.map((listener) => {
+        clearInterval(listener);
+        dispatch({ type: "SetListener", id: O.none });
+      })
     );
-  }
-}
+  };
 
-export default App;
+  const setDirection = (e: KeyboardEvent) => {
+    pipe(
+      getDirection(e.key),
+      O.map((direction) => dispatch({ type: "SetDirection", direction }))
+    );
+  };
+
+  const restartPlay = () => {
+    dispatch({
+      type: "Restart",
+      listener: startMoving(),
+    });
+  };
+
+  React.useEffect(() => {
+    document.body.addEventListener("keydown", setDirection);
+    startPlay();
+    return () => document.body.removeEventListener("keydown", setDirection);
+  }, []);
+
+  const isGameOver = hasEatenItself(state.snakeLocation);
+
+  React.useEffect(() => {
+    if (isGameOver) {
+      stopPlay();
+    }
+  }, [isGameOver]);
+
+  return (
+    <main className="App" style={AppContainerStyle}>
+      <div style={ArenaStyle}>
+        <Snake coords={state.snakeLocation} face={isGameOver ? "🙀" : "😈"} />
+        <Food location={state.foodLocation} />
+        {isGameOver && <GameOverMessage onPlayAgain={restartPlay} />}
+      </div>
+      Score: {state.snakeLocation.length - INITIAL_SNAKE_LENGTH}
+    </main>
+  );
+};
+
+const nextX = (headX: number, direction: Direction) => {
+  return (
+    (BOARD_WIDTH +
+      (headX + (direction === "R" ? 1 : direction === "L" ? -1 : 0))) %
+    BOARD_WIDTH
+  );
+};
+const nextY = (headY: number, direction: Direction) => {
+  return (
+    (BOARD_HEIGHT +
+      (headY + (direction === "U" ? 1 : direction === "D" ? -1 : 0))) %
+    BOARD_HEIGHT
+  );
+};
+
+const moveSnake = ({
+  snakeLocation,
+  direction,
+  addSegment,
+  foodLocation,
+  listener,
+}: State): State => {
+  const nextHead = {
+    x: nextX(snakeLocation[0].x, direction),
+    y: nextY(snakeLocation[0].y, direction),
+  };
+
+  const newSnakeLocation = [nextHead]
+    .concat(snakeLocation)
+    .slice(0, addSegment ? undefined : -1);
+
+  const hasEatenFood = pointEq.equals(nextHead, foodLocation);
+
+  return {
+    listener,
+    snakeLocation: newSnakeLocation,
+    addSegment: hasEatenFood,
+    direction,
+    foodLocation: hasEatenFood
+      ? getFoodLocation(newSnakeLocation)
+      : foodLocation,
+  };
+};
 
 function getDirection(key: KeyboardEvent["key"]) {
   const directions: Record<KeyboardEvent["key"], Direction> = {
@@ -161,26 +200,31 @@ function getDirection(key: KeyboardEvent["key"]) {
     ArrowRight: "R",
   };
 
-  return Option(directions[key]);
+  return R.lookup(key)(directions);
 }
 
-function hasEatenItself(snake: Coords[]) {
+function hasEatenItself(snake: Point[]) {
   const [head, ...tail] = snake;
-  return tail.some(isSameCoords(head));
+  return containsPoint(head, tail);
 }
 
-function getFoodLocation(snakeLocation: Coords[]): Coords {
-  const foodLocation = { x: getPoint(), y: getPoint() };
-  if (snakeLocation.some(isSameCoords(foodLocation))) {
+function getFoodLocation(snakeLocation: Point[]): Point {
+  const foodLocation = { x: getPointX(), y: getPointY() };
+  if (containsPoint(foodLocation, snakeLocation)) {
     return getFoodLocation(snakeLocation);
   }
   return foodLocation;
 }
 
-function getPoint() {
-  return Math.floor(Math.random() * 30);
+function getPointX() {
+  return Math.floor(Math.random() * BOARD_WIDTH);
+}
+function getPointY() {
+  return Math.floor(Math.random() * BOARD_HEIGHT);
 }
 
-function isSameCoords(c1: Coords) {
-  return (c2: Coords) => c1.x === c2.x && c1.y === c2.y;
-}
+const pointEq: Eq.Eq<Point> = Eq.fromEquals(
+  (c1, c2) => c1.x === c2.x && c1.y === c2.y
+);
+
+const containsPoint = A.elem(pointEq);
